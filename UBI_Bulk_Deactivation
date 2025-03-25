@@ -1,52 +1,79 @@
+import subprocess
+import time
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import time
 
-# Use existing Chrome session
+# Step 1: Start Chrome in Debugging Mode (if not already running)
+chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+debugging_port = "9222"
+
+subprocess.Popen(
+    [chrome_path, f"--remote-debugging-port={debugging_port}", "--user-data-dir=C:\\SeleniumProfile"],
+    shell=True,
+)
+
+# Step 2: Wait a few seconds for Chrome to launch
+time.sleep(5)
+
+# Step 3: Connect Selenium to the existing Chrome session
 options = webdriver.ChromeOptions()
-options.debugger_address = "localhost:9222"  # Attach to existing session
+options.debugger_address = f"localhost:{debugging_port}"  # Attach to existing Chrome
 
 # Start WebDriver without launching a new Chrome instance
 driver = webdriver.Chrome(options=options)
 
 try:
-    # Ensure we're on the correct page
-    driver.get("https://epay.unionbankofindia.co.in/kvsfcs/StudListClass.aspx")
+    # Step 4: Ensure we're on the correct page
+    driver.get("https://epay.unionbankofindia.co.in/kvsfcs/")
 
-    # Wait object for dynamic elements
-    wait = WebDriverWait(driver, 10)
+    # Wait for user to complete login
+    print("🔄 Waiting for user to log in...")
 
-    while True:
-        try:
-            # Check if the span (indicating deletion) is present
-            deleted_span = driver.find_element(By.ID, "ContentPlaceHolder1_GVList_lblDeleted_0")
-            print("Delete button replaced with span. Stopping loop.")
-            break  # Stop looping when deletion is confirmed
-        except:
-            pass  # Continue if the span is not found
+    WebDriverWait(driver, 120).until(
+        EC.presence_of_element_located((By.ID, "ContentPlaceHolder1_GVList"))  # Modify as needed
+    )
 
-        try:
-            # Locate and click the delete button
-            delete_button = wait.until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_GVList_ImgbtnDel_0")))
-            delete_button.click()
-            print("Delete button clicked.")
+    print("✅ Login detected. Waiting for navigation to 'StudListClass.aspx'...")
 
-            # Handle the confirmation alert
-            alert = wait.until(EC.alert_is_present())
-            print(f"Alert Message: {alert.text}")
-            alert.accept()
-            print("Alert accepted.")
+    # Step 5: Wait until user navigates to "StudListClass.aspx"
+    WebDriverWait(driver, 180).until(
+        EC.url_contains("StudListClass.aspx")
+    )
+    print("✅ User has navigated to 'StudListClass.aspx'.")
 
-            # Allow time for UI to refresh
-            time.sleep(2)
+    # Step 6: Wait for the "Deactivate All Students" button
+    print("🔄 Waiting for action on 'ContentPlaceHolder1_ImgbtnSearch'...")
 
-        except:
-            print("No delete button found. Retrying...")
+    WebDriverWait(driver, 180).until(
+        EC.presence_of_element_located((By.ID, "ContentPlaceHolder1_ImgbtnSearch"))
+    )
+    
+    # Step 7: Ask for confirmation in the browser
+    driver.execute_script("window.confirm('⚠️ Do you want to deactivate all students? Click OK to proceed.');")
+
+    # Detect user's response
+    confirm_button = driver.switch_to.alert
+    confirm_text = confirm_button.text
+    print(f"🔔 Alert Message: {confirm_text}")
+
+    if "deactivate" in confirm_text.lower():
+        confirm_button.accept()  # Click "OK"
+        print("✅ User confirmed. Proceeding with deactivation...")
+
+        # Step 8: Click the deactivate button
+        deactivate_button = driver.find_element(By.ID, "ContentPlaceHolder1_ImgbtnSearch")
+        deactivate_button.click()
+        print("✅ Deactivation process started.")
+    else:
+        confirm_button.dismiss()  # Click "Cancel"
+        print("❌ Action canceled by user.")
 
 except Exception as e:
-    print("Error:", e)
+    print("❌ Error:", e)
 
 finally:
-    print("Script completed.")
+    print("✅ Script completed.")
