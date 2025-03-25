@@ -1,0 +1,52 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time
+
+# Use existing Chrome session
+options = webdriver.ChromeOptions()
+options.debugger_address = "localhost:9222"  # Attach to existing session
+
+# Start WebDriver without launching a new Chrome instance
+driver = webdriver.Chrome(options=options)
+
+try:
+    # Ensure we're on the correct page
+    driver.get("https://epay.unionbankofindia.co.in/kvsfcs/StudListClass.aspx")
+
+    # Wait object for dynamic elements
+    wait = WebDriverWait(driver, 10)
+
+    while True:
+        try:
+            # Check if the span (indicating deletion) is present
+            deleted_span = driver.find_element(By.ID, "ContentPlaceHolder1_GVList_lblDeleted_0")
+            print("Delete button replaced with span. Stopping loop.")
+            break  # Stop looping when deletion is confirmed
+        except:
+            pass  # Continue if the span is not found
+
+        try:
+            # Locate and click the delete button
+            delete_button = wait.until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_GVList_ImgbtnDel_0")))
+            delete_button.click()
+            print("Delete button clicked.")
+
+            # Handle the confirmation alert
+            alert = wait.until(EC.alert_is_present())
+            print(f"Alert Message: {alert.text}")
+            alert.accept()
+            print("Alert accepted.")
+
+            # Allow time for UI to refresh
+            time.sleep(2)
+
+        except:
+            print("No delete button found. Retrying...")
+
+except Exception as e:
+    print("Error:", e)
+
+finally:
+    print("Script completed.")
